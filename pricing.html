@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI Pricing — Legerly</title>
+<meta name="description" content="What every AI model actually costs. Per-token API rates and consumer subscription prices for Claude, ChatGPT, Gemini, Grok, Mistral, Perplexity, Copilot and DeepSeek — in one table." />
+
+<!--
+  Legerly — AI Pricing table
+  --------------------------------------------------------------
+  Single self-contained file. No external requests, no CDN, no Google Fonts.
+  Per-token data mirrors extension/prices.json (source of truth).
+  Subscription data verified from official provider pricing pages (June 2026).
+
+  To update: edit the PER_TOKEN and SUBSCRIPTIONS arrays in the <script> block.
+  Per-token figures here are shown per 1,000,000 tokens (prices.json stores per-token).
+
+  Self-hosted fonts: drop your Syne / DM Mono files into the site and fill in the
+  @font-face blocks below. Until then it falls back cleanly to system fonts.
+-->
+
+<style>
+  /* ---- Self-hosted fonts (fill in paths to enable; safe to leave empty) ----
+  @font-face { font-family:"Syne"; src:url("/fonts/Syne-Bold.woff2") format("woff2"); font-weight:700; font-display:swap; }
+  @font-face { font-family:"DM Mono"; src:url("/fonts/DMMono-Regular.woff2") format("woff2"); font-weight:400; font-display:swap; }
+  @font-face { font-family:"DM Mono"; src:url("/fonts/DMMono-Medium.woff2") format("woff2"); font-weight:500; font-display:swap; }
+  ------------------------------------------------------------------------- */
+
+  :root {
+    --bg:        #0a0f0d;
+    --panel:     #0e1512;
+    --panel-2:   #111a16;
+    --line:      #1d2a24;
+    --line-soft: #16211c;
+    --ink:       #e8efe9;
+    --ink-dim:   #8aa096;
+    --ink-faint: #5e7268;
+    --green:     #4caf82;
+    --green-2:   #38c9a0;
+    --gold:      #d4a843;
+
+    --display: "Syne", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --body:    "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono:    "DM Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--body);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 20px; }
+
+  /* ---------- Masthead ---------- */
+  header.masthead { padding: 44px 0 22px; border-bottom: 1px solid var(--line); }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--green);
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: 0 0 18px;
+  }
+  .eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gold); display: inline-block; }
+
+  h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(30px, 6vw, 52px);
+    line-height: 1.02;
+    letter-spacing: -0.01em;
+    margin: 0 0 14px;
+  }
+  h1 .accent { color: var(--green); }
+
+  .lede {
+    max-width: 60ch;
+    color: var(--ink-dim);
+    font-size: clamp(15px, 2.2vw, 17px);
+    margin: 0 0 22px;
+  }
+
+  /* index ticker strip — the "ledger" signature */
+  .ticker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+    font-family: var(--mono);
+  }
+  .ticker .cell { padding: 11px 16px; border-right: 1px solid var(--line); flex: 1 1 auto; min-width: 120px; }
+  .ticker .cell:last-child { border-right: 0; }
+  .ticker .k { display: block; font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 4px; }
+  .ticker .v { font-size: 16px; color: var(--ink); }
+  .ticker .v.green { color: var(--green-2); }
+
+  /* ---------- Controls ---------- */
+  .controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; padding: 22px 0 16px; }
+
+  .toggle {
+    display: inline-flex;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 3px;
+    background: var(--panel);
+  }
+  .toggle button {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--ink-dim);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    letter-spacing: 0.04em;
+    padding: 8px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: color .15s ease, background .15s ease;
+  }
+  .toggle button[aria-pressed="true"] { background: var(--panel-2); color: var(--ink); box-shadow: inset 0 -2px 0 var(--gold); }
+  .toggle button:hover:not([aria-pressed="true"]) { color: var(--ink); }
+
+  .search {
+    flex: 1 1 200px;
+    min-width: 170px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel);
+    padding: 0 12px;
+  }
+  .search svg { flex: none; }
+  .search input {
+    flex: 1;
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 14px;
+    padding: 10px 0;
+    outline: none;
+  }
+  .search input::placeholder { color: var(--ink-faint); }
+
+  /* provider filter chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; padding: 4px 0 18px; }
+  .chip {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--ink-dim);
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: 0.03em;
+    padding: 6px 11px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all .14s ease;
+  }
+  .chip:hover { color: var(--ink); border-color: var(--ink-faint); }
+  .chip[aria-pressed="true"] { color: var(--bg); background: var(--green); border-color: var(--green); font-weight: 500; }
+
+  /* ---------- Table ---------- */
+  .tablewrap { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel); }
+  table { width: 100%; border-collapse: collapse; }
+
+  thead th {
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 400;
+    padding: 13px 16px;
+    background: var(--panel-2);
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+  thead th.sortable { cursor: pointer; user-select: none; }
+  thead th.sortable:hover { color: var(--ink-dim); }
+  thead th .arrow { color: var(--gold); margin-left: 5px; font-size: 10px; opacity: 0; }
+  thead th[data-dir="asc"] .arrow,
+  thead th[data-dir="desc"] .arrow { opacity: 1; }
+  th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  tbody td { padding: 13px 16px; border-bottom: 1px solid var(--line-soft); font-size: 14px; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover td { background: var(--panel-2); }
+
+  td.num { font-family: var(--mono); color: var(--ink); }
+  td.unit { color: var(--ink-faint); font-size: 12px; }
+
+  .prov { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .prov .swatch { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+  .prov .name { font-family: var(--mono); font-size: 12.5px; color: var(--ink-dim); }
+
+  .model { font-weight: 500; }
+  .note { display: block; font-size: 11.5px; color: var(--ink-faint); margin-top: 3px; }
+
+  .free { font-family: var(--mono); color: var(--green-2); }
+
+  .empty { padding: 40px 16px; text-align: center; color: var(--ink-faint); font-family: var(--mono); font-size: 13px; }
+
+  /* ---------- Footer ---------- */
+  footer { padding: 26px 0 60px; color: var(--ink-faint); font-size: 12.5px; }
+  footer .note-line { font-family: var(--mono); margin: 0 0 7px; }
+  footer a { color: var(--green); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+  footer .manifesto { color: var(--ink-dim); font-style: italic; margin-top: 16px; max-width: 56ch; }
+
+  /* responsive: collapse the output column on narrow screens via horizontal scroll */
+  @media (max-width: 560px) {
+    .tablewrap { overflow-x: auto; }
+    table { min-width: 520px; }
+    .ticker .cell { min-width: 50%; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+
+  :focus-visible { outline: 2px solid var(--green-2); outline-offset: 2px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow"><span class="dot"></span> Legerly · AI Pricing Index</p>
+    <h1>What every AI model<br><span class="accent">actually costs.</span></h1>
+    <p class="lede">Per-token API rates and consumer subscription prices for every major model, side by side. No affiliates, no ads — just the numbers the providers would rather you didn't compare.</p>
+
+    <div class="ticker" id="ticker">
+      <div class="cell"><span class="k">Models tracked</span><span class="v green" id="t-models">—</span></div>
+      <div class="cell"><span class="k">Providers</span><span class="v" id="t-prov">—</span></div>
+      <div class="cell"><span class="k">Cheapest input / 1M</span><span class="v" id="t-cheap">—</span></div>
+      <div class="cell"><span class="k">Updated</span><span class="v" id="t-date">—</span></div>
+    </div>
+  </header>
+
+  <div class="controls">
+    <div class="toggle" role="group" aria-label="Pricing view">
+      <button id="view-token" aria-pressed="true">Per-token (API)</button>
+      <button id="view-sub" aria-pressed="false">Subscriptions</button>
+    </div>
+    <label class="search">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#5e7268" stroke-width="2" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.5" y2="16.5"></line>
+      </svg>
+      <input id="search" type="search" placeholder="Search model, plan or provider…" autocomplete="off" aria-label="Search" />
+    </label>
+  </div>
+
+  <div class="chips" id="chips" role="group" aria-label="Filter by provider"></div>
+
+  <div class="tablewrap">
+    <table id="table">
+      <thead id="thead"></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <footer>
+    <p class="note-line" id="foot-token">API rates shown per 1,000,000 tokens · source: Legerly dataset (prices.json)</p>
+    <p class="note-line">Subscription prices verified from official provider pages · June 2026 · USD/month</p>
+    <p class="note-line">Prices change. We refresh weekly — spotted something stale? <a href="https://github.com/roryweston26-source/ecometer-ai" target="_blank" rel="noopener">Open an issue.</a></p>
+    <p class="manifesto">Markets work best when both sides have the same information. AI isn't there yet. We're here to bring that to you.</p>
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---- Provider metadata (display name + accent swatch) ----
+  var PROVIDERS = {
+    anthropic:  { name: "Anthropic",  color: "#d4a843" },
+    openai:     { name: "OpenAI",     color: "#4caf82" },
+    google:     { name: "Google",     color: "#38c9a0" },
+    xai:        { name: "xAI",         color: "#c9d1cc" },
+    mistral:    { name: "Mistral",    color: "#e0863f" },
+    perplexity: { name: "Perplexity", color: "#3fb6c9" },
+    microsoft:  { name: "Microsoft",  color: "#6f9fe0" },
+    deepseek:   { name: "DeepSeek",   color: "#8a7fe0" }
+  };
+
+  // ---- Per-token data (USD per 1,000,000 tokens) ----
+  // Mirrors prices.json (per-token values × 1,000,000), current models only.
+  var PER_TOKEN = [
+    { p:"anthropic", m:"Claude Haiku 4.5",      in:1.00,  out:5.00 },
+    { p:"anthropic", m:"Claude Sonnet 4.6",     in:3.00,  out:15.00 },
+    { p:"anthropic", m:"Claude Opus 4.8",       in:5.00,  out:25.00, note:"Opus 4.6 / 4.7 priced the same" },
+
+    { p:"openai",    m:"GPT-5.5",               in:5.00,  out:30.00 },
+    { p:"openai",    m:"GPT-5.4",               in:2.50,  out:15.00 },
+    { p:"openai",    m:"GPT-5.4 mini",          in:0.75,  out:4.50 },
+    { p:"openai",    m:"GPT-4.1",               in:2.00,  out:8.00 },
+    { p:"openai",    m:"GPT-4.1 mini",          in:0.40,  out:1.60 },
+    { p:"openai",    m:"GPT-4.1 nano",          in:0.10,  out:0.40 },
+    { p:"openai",    m:"GPT-4o",                in:2.50,  out:10.00 },
+    { p:"openai",    m:"GPT-4o mini",           in:0.15,  out:0.60 },
+    { p:"openai",    m:"o3",                    in:2.00,  out:8.00 },
+    { p:"openai",    m:"o4-mini",               in:1.10,  out:4.40 },
+
+    { p:"google",    m:"Gemini 3.5 Flash",      in:1.50,  out:9.00 },
+    { p:"google",    m:"Gemini 3.1 Pro",        in:2.00,  out:12.00, note:"Preview" },
+    { p:"google",    m:"Gemini 3.1 Flash-Lite", in:0.25,  out:1.50 },
+    { p:"google",    m:"Gemini 2.5 Pro",        in:1.25,  out:10.00 },
+    { p:"google",    m:"Gemini 2.5 Flash",      in:0.30,  out:2.50 },
+    { p:"google",    m:"Gemini 2.5 Flash-Lite", in:0.10,  out:0.40 },
+
+    { p:"xai",       m:"Grok 4.3",              in:1.25,  out:2.50 },
+    { p:"xai",       m:"Grok 4.20",             in:2.00,  out:6.00 },
+    { p:"xai",       m:"Grok 4",                in:3.00,  out:15.00 },
+    { p:"xai",       m:"Grok 3",                in:2.00,  out:10.00 },
+    { p:"xai",       m:"Grok 3 Mini",           in:0.30,  out:0.50 },
+
+    { p:"mistral",   m:"Mistral Large 3",       in:2.00,  out:6.00 },
+    { p:"mistral",   m:"Mistral Medium 3",      in:0.40,  out:2.00 },
+    { p:"mistral",   m:"Mistral Small 3",       in:0.20,  out:0.60 },
+    { p:"mistral",   m:"Codestral",             in:0.30,  out:0.90 },
+
+    { p:"perplexity",m:"Sonar Pro",             in:3.00,  out:15.00 },
+    { p:"perplexity",m:"Sonar",                 in:1.00,  out:1.00 },
+    { p:"perplexity",m:"Sonar Reasoning Pro",   in:2.00,  out:8.00 },
+
+    { p:"deepseek",  m:"DeepSeek V4 Flash",     in:0.14,  out:0.28 },
+    { p:"deepseek",  m:"DeepSeek V4 Pro",       in:1.74,  out:3.48 },
+    { p:"deepseek",  m:"DeepSeek V3",           in:0.14,  out:0.28 },
+    { p:"deepseek",  m:"DeepSeek R1",           in:0.55,  out:2.19 }
+  ];
+
+  // ---- Subscription data (USD per month, consumer plans) ----
+  var SUBSCRIPTIONS = [
+    { p:"openai",     m:"ChatGPT Free",         price:0 },
+    { p:"openai",     m:"ChatGPT Go",           price:8 },
+    { p:"openai",     m:"ChatGPT Plus",         price:20 },
+    { p:"openai",     m:"ChatGPT Pro",          price:100 },
+    { p:"openai",     m:"ChatGPT Pro (20×)",    price:200 },
+
+    { p:"anthropic",  m:"Claude Free",          price:0 },
+    { p:"anthropic",  m:"Claude Pro",           price:20,  note:"$17/mo billed annually" },
+    { p:"anthropic",  m:"Claude Max 5×",        price:100 },
+    { p:"anthropic",  m:"Claude Max 20×",       price:200 },
+
+    { p:"google",     m:"Gemini (Free)",        price:0 },
+    { p:"google",     m:"Google AI Plus",       price:7.99 },
+    { p:"google",     m:"Google AI Pro",        price:19.99 },
+    { p:"google",     m:"Google AI Ultra",      price:99.99, note:"5× Pro limits" },
+    { p:"google",     m:"Google AI Ultra (20×)",price:200 },
+
+    { p:"xai",        m:"Grok (Free)",          price:0 },
+    { p:"xai",        m:"SuperGrok Lite",       price:10 },
+    { p:"xai",        m:"SuperGrok",            price:30,  note:"X Premium+ bundle: $40/mo" },
+    { p:"xai",        m:"SuperGrok Heavy",      price:300 },
+
+    { p:"perplexity", m:"Perplexity Free",      price:0 },
+    { p:"perplexity", m:"Perplexity Pro",       price:20 },
+    { p:"perplexity", m:"Perplexity Max",       price:200 },
+
+    { p:"microsoft",  m:"Copilot (Free)",       price:0 },
+    { p:"microsoft",  m:"Microsoft 365 Premium",price:19.99, note:"Replaces Copilot Pro ($20), retiring Aug 2026" },
+
+    { p:"mistral",    m:"Le Chat Free",         price:0 },
+    { p:"mistral",    m:"Le Chat Pro",          price:14.99, note:"$5.99/mo for students" },
+
+    { p:"deepseek",   m:"DeepSeek (Free)",      price:0,  note:"No paid consumer tier — chat is free" }
+  ];
+
+  var UPDATED = "2026-06-18";
+
+  // ---- State ----
+  var state = { view: "token", search: "", provider: "all", sortKey: null, sortDir: 1 };
+
+  var $ = function (id) { return document.getElementById(id); };
+  function provName(p) { return (PROVIDERS[p] || {}).name || p; }
+  function provColor(p) { return (PROVIDERS[p] || {}).color || "#8aa096"; }
+  function money(n) { return "$" + n.toFixed(2); }
+
+  function activeData() { return state.view === "token" ? PER_TOKEN : SUBSCRIPTIONS; }
+
+  // ---- Ticker ----
+  function fillTicker() {
+    var provset = {};
+    PER_TOKEN.forEach(function (r) { provset[r.p] = 1; });
+    SUBSCRIPTIONS.forEach(function (r) { provset[r.p] = 1; });
+    var cheapest = Math.min.apply(null, PER_TOKEN.map(function (r) { return r.in; }));
+    $("t-models").textContent = PER_TOKEN.length;
+    $("t-prov").textContent = Object.keys(provset).length;
+    $("t-cheap").textContent = money(cheapest);
+    $("t-date").textContent = UPDATED;
+  }
+
+  // ---- Provider chips ----
+  function buildChips() {
+    var data = activeData();
+    var order = [];
+    var seen = {};
+    data.forEach(function (r) { if (!seen[r.p]) { seen[r.p] = 1; order.push(r.p); } });
+
+    var html = '<button class="chip" data-prov="all" aria-pressed="' + (state.provider === "all") + '">All</button>';
+    order.forEach(function (p) {
+      html += '<button class="chip" data-prov="' + p + '" aria-pressed="' + (state.provider === p) + '">' + provName(p) + '</button>';
+    });
+    var chips = $("chips");
+    chips.innerHTML = html;
+    Array.prototype.forEach.call(chips.querySelectorAll(".chip"), function (btn) {
+      btn.addEventListener("click", function () {
+        state.provider = btn.getAttribute("data-prov");
+        buildChips();
+        render();
+      });
+    });
+  }
+
+  // ---- Header ----
+  function buildHead() {
+    var thead = $("thead");
+    var cols;
+    if (state.view === "token") {
+      cols = [
+        { key: "p",   label: "Provider", cls: "" },
+        { key: "m",   label: "Model",    cls: "" },
+        { key: "in",  label: "Input /1M", cls: "num" },
+        { key: "out", label: "Output /1M", cls: "num" }
+      ];
+    } else {
+      cols = [
+        { key: "p",     label: "Provider", cls: "" },
+        { key: "m",     label: "Plan",     cls: "" },
+        { key: "price", label: "Per month", cls: "num" }
+      ];
+    }
+    var tr = "<tr>";
+    cols.forEach(function (c) {
+      var dir = state.sortKey === c.key ? (state.sortDir === 1 ? "asc" : "desc") : "";
+      var arrow = dir === "asc" ? "▲" : (dir === "desc" ? "▼" : "");
+      tr += '<th class="sortable ' + c.cls + '" data-key="' + c.key + '" data-dir="' + dir + '" scope="col">' +
+            c.label + '<span class="arrow">' + arrow + '</span></th>';
+    });
+    tr += "</tr>";
+    thead.innerHTML = tr;
+
+    Array.prototype.forEach.call(thead.querySelectorAll("th.sortable"), function (th) {
+      th.addEventListener("click", function () {
+        var key = th.getAttribute("data-key");
+        if (state.sortKey === key) { state.sortDir *= -1; }
+        else { state.sortKey = key; state.sortDir = 1; }
+        render();
+      });
+    });
+  }
+
+  // ---- Body ----
+  function render() {
+    buildHead();
+    var data = activeData().slice();
+
+    if (state.provider !== "all") {
+      data = data.filter(function (r) { return r.p === state.provider; });
+    }
+    if (state.search) {
+      var q = state.search.toLowerCase();
+      data = data.filter(function (r) {
+        return (r.m.toLowerCase().indexOf(q) !== -1) || (provName(r.p).toLowerCase().indexOf(q) !== -1);
+      });
+    }
+    if (state.sortKey) {
+      var k = state.sortKey, dir = state.sortDir;
+      data.sort(function (a, b) {
+        var av = a[k], bv = b[k];
+        if (k === "p") { av = provName(a.p); bv = provName(b.p); }
+        if (typeof av === "string") { return av.localeCompare(bv) * dir; }
+        return (av - bv) * dir;
+      });
+    }
+
+    var tbody = $("tbody");
+    if (!data.length) {
+      var span = state.view === "token" ? 4 : 3;
+      tbody.innerHTML = '<tr><td class="empty" colspan="' + span + '">No matches. Try a different search.</td></tr>';
+      return;
+    }
+
+    var rows = data.map(function (r) {
+      var prov = '<span class="prov"><span class="swatch" style="background:' + provColor(r.p) + '"></span>' +
+                 '<span class="name">' + provName(r.p) + '</span></span>';
+      var model = '<span class="model">' + r.m + '</span>' + (r.note ? '<span class="note">' + r.note + '</span>' : '');
+
+      if (state.view === "token") {
+        return '<tr><td>' + prov + '</td><td>' + model + '</td>' +
+               '<td class="num">' + money(r.in) + '</td>' +
+               '<td class="num">' + money(r.out) + '</td></tr>';
+      } else {
+        var priceCell = r.price === 0
+          ? '<span class="free">Free</span>'
+          : money(r.price);
+        return '<tr><td>' + prov + '</td><td>' + model + '</td>' +
+               '<td class="num">' + priceCell + '</td></tr>';
+      }
+    });
+    tbody.innerHTML = rows.join("");
+  }
+
+  // ---- View toggle ----
+  function setView(view) {
+    state.view = view;
+    state.sortKey = null;
+    state.sortDir = 1;
+    state.provider = "all";
+    $("view-token").setAttribute("aria-pressed", view === "token");
+    $("view-sub").setAttribute("aria-pressed", view === "sub");
+    $("foot-token").style.display = view === "token" ? "" : "none";
+    buildChips();
+    render();
+  }
+
+  // ---- Wire up ----
+  $("view-token").addEventListener("click", function () { setView("token"); });
+  $("view-sub").addEventListener("click", function () { setView("sub"); });
+  $("search").addEventListener("input", function (e) { state.search = e.target.value; render(); });
+
+  fillTicker();
+  buildChips();
+  render();
+})();
+</script>
+</body>
+</html>
