@@ -61,7 +61,22 @@
   .wrap { max-width: 980px; margin: 0 auto; padding: 0 20px; }
 
   /* ---------- Masthead ---------- */
-  header.masthead { padding: 44px 0 22px; border-bottom: 1px solid var(--line); }
+  header.masthead { padding: 32px 0 22px; border-bottom: 1px solid var(--line); }
+
+  .backlink {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    color: var(--ink-dim);
+    text-decoration: none;
+    margin: 0 0 22px;
+    transition: color .15s ease, gap .15s ease;
+  }
+  .backlink:hover { color: var(--green); gap: 11px; }
+  .backlink .arr { color: var(--green); font-size: 14px; line-height: 1; }
 
   .eyebrow {
     font-family: var(--mono);
@@ -248,6 +263,7 @@
 <div class="wrap">
 
   <header class="masthead">
+    <a class="backlink" href="/"><span class="arr">←</span> Back to Legerly</a>
     <p class="eyebrow"><span class="dot"></span> Legerly · AI Pricing Index</p>
     <h1>What every AI model<br><span class="accent">actually costs.</span></h1>
     <p class="lede">Per-token API rates and consumer subscription prices for every major model, side by side. No affiliates, no ads — just the numbers the providers would rather you didn't compare.</p>
