@@ -94,11 +94,13 @@
   .band-head h2{font-family:var(--mono);font-size:.8rem;font-weight:500;letter-spacing:.28em;text-transform:uppercase;color:var(--green);margin:0}
   .band-head .sub{font-family:var(--body);font-size:.86rem;color:var(--muted-dim)}
   .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(258px,1fr))}
+  #flows{grid-template-columns:repeat(2,minmax(0,1fr))}
+  @media (max-width:680px){#flows{grid-template-columns:1fr}}
   .metric{background:var(--panel);border:1px solid var(--panel-line);border-radius:12px;padding:20px 20px 18px;min-width:0;position:relative;overflow:hidden}
   .metric::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:linear-gradient(var(--green-2),rgba(56,201,160,0));opacity:.55}
   .metric.stock::before{background:linear-gradient(var(--gold),rgba(212,168,67,0))}
   .m-label{font-family:var(--mono);font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
-  .m-value{font-family:var(--mono);font-weight:500;font-size:clamp(1.5rem,5.4vw,2.35rem);line-height:1.05;letter-spacing:-.01em;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .m-value{font-family:var(--mono);font-weight:500;font-size:clamp(1.3rem,3.6vw,2.05rem);line-height:1.05;letter-spacing:-.01em;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden}
   .m-value .pre,.m-value .unit{color:var(--green-2)}
   .m-value .unit{font-size:.5em;letter-spacing:.04em;margin-left:.45em;color:var(--muted)}
   .metric.stock .m-value{color:#f4ecd8}
@@ -337,6 +339,21 @@ STOCKS.forEach(m => stocksRoot.appendChild(buildCard(m, true)));
 const numNodes = {};
 [...FLOWS, ...STOCKS].forEach(m => { numNodes[m.id] = document.querySelector(`#v-${m.id} .num`); });
 
+/* auto-fit: shrink a value's font so it never overflows its tile */
+const valNodes = {};
+[...FLOWS, ...STOCKS].forEach(m => { valNodes[m.id] = document.getElementById(`v-${m.id}`); });
+const lastLen = {};
+function fitValue(el){
+  if(!el) return;
+  el.style.fontSize = '';                 // reset to CSS-driven size, then measure
+  const avail = el.clientWidth;
+  if(avail > 0 && el.scrollWidth > avail){
+    const base = parseFloat(getComputedStyle(el).fontSize);
+    el.style.fontSize = Math.max(11, base * avail / el.scrollWidth - 0.5) + 'px';
+  }
+}
+function fitAll(){ Object.values(valNodes).forEach(fitValue); }
+
 /* ---- state ---- */
 let activeKey = 'moderate';
 let B = baseRates(SCENARIOS[activeKey]);
@@ -388,19 +405,29 @@ document.querySelectorAll('.segmented button').forEach(btn => {
       b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'));
     renderLabels();
     update();
+    fitAll();
   });
 });
 
 function update(){
   const now = Date.now();
-  FLOWS.forEach(m => { numNodes[m.id].textContent = fmt(cumulative(B[m.id], G[m.id], now)); });
-  numNodes.users.textContent = fmt(stockLevel(SCENARIOS[activeKey].usersNow, RATES.users, now));
-  numNodes.gpus.textContent  = fmt(stockLevel(SCENARIOS[activeKey].gpusNow,  RATES.compute, now));
+  const set = (id, val) => {
+    const s = fmt(val);
+    numNodes[id].textContent = s;
+    if(lastLen[id] !== s.length){ lastLen[id] = s.length; fitValue(valNodes[id]); }
+  };
+  FLOWS.forEach(m => set(m.id, cumulative(B[m.id], G[m.id], now)));
+  set('users', stockLevel(SCENARIOS[activeKey].usersNow, RATES.users, now));
+  set('gpus',  stockLevel(SCENARIOS[activeKey].gpusNow,  RATES.compute, now));
 }
 
 const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 renderLabels();
 update();
+fitAll();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitAll);
+let _rz;
+window.addEventListener('resize', () => { clearTimeout(_rz); _rz = setTimeout(fitAll, 120); });
 setInterval(() => { update(); }, reduce ? 250 : 60);
 setInterval(renderLabels, 60000); // refresh per-second rate + per-unit figures each minute
 </script>
