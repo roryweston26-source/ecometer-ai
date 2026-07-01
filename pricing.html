@@ -9,12 +9,16 @@
 <!--
   Legerly — AI Pricing table
   --------------------------------------------------------------
-  Single self-contained file. No external requests, no CDN, no Google Fonts.
-  Per-token data mirrors extension/prices.json (source of truth).
-  Subscription data verified from official provider pricing pages (June 2026).
+  Single self-contained file. No CDN, no Google Fonts.
 
-  To update: edit the PER_TOKEN and SUBSCRIPTIONS arrays in the <script> block.
-  Per-token figures here are shown per 1,000,000 tokens (prices.json stores per-token).
+  Per-token PRICES are fetched live from /extension/prices.json (the same file
+  the Monday GitHub Action maintains) — so once you merge the weekly price PR,
+  this page updates itself. No need to edit numbers here.
+  - To add/remove/rename a model or change its order: edit MODEL_REGISTRY.
+  - FALLBACK_PRICES is only a safety net shown if the live fetch ever fails.
+
+  Subscription prices are NOT in prices.json, so the SUBSCRIPTIONS array below
+  is still maintained by hand. Verified June 2026.
 
   Self-hosted fonts: drop your Syne / DM Mono files into the site and fill in the
   @font-face blocks below. Until then it falls back cleanly to system fonts.
@@ -299,7 +303,7 @@
   </div>
 
   <footer>
-    <p class="note-line" id="foot-token">API rates shown per 1,000,000 tokens · source: Legerly dataset (prices.json)</p>
+    <p class="note-line" id="foot-token">API rates shown per 1,000,000 tokens · pulled live from prices.json</p>
     <p class="note-line">Subscription prices verified from official provider pages · June 2026 · USD/month</p>
     <p class="note-line">Prices change. We refresh weekly — spotted something stale? <a href="https://github.com/roryweston26-source/ecometer-ai" target="_blank" rel="noopener">Open an issue.</a></p>
     <p class="manifesto">Markets work best when both sides have the same information. AI isn't there yet. We're here to bring that to you.</p>
@@ -323,51 +327,125 @@
     deepseek:   { name: "DeepSeek",   color: "#8a7fe0" }
   };
 
-  // ---- Per-token data (USD per 1,000,000 tokens) ----
-  // Mirrors prices.json (per-token values × 1,000,000), current models only.
-  var PER_TOKEN = [
-    { p:"anthropic", m:"Claude Haiku 4.5",      in:1.00,  out:5.00 },
-    { p:"anthropic", m:"Claude Sonnet 4.6",     in:3.00,  out:15.00 },
-    { p:"anthropic", m:"Claude Opus 4.8",       in:5.00,  out:25.00, note:"Opus 4.6 / 4.7 priced the same" },
+  // ---- Model registry: which models to show, display name, and prices.json key ----
+  // PRICES are read live from prices.json (the file the Monday Action updates).
+  // This list only controls naming, order, and which models appear.
+  var MODEL_REGISTRY = [
+    { p:"anthropic", key:"claude-haiku-4-5-20251001", m:"Claude Haiku 4.5" },
+    { p:"anthropic", key:"claude-sonnet-4-6",         m:"Claude Sonnet 4.6" },
+    { p:"anthropic", key:"claude-opus-4-8",           m:"Claude Opus 4.8", note:"Opus 4.6 / 4.7 priced the same" },
 
-    { p:"openai",    m:"GPT-5.5",               in:5.00,  out:30.00 },
-    { p:"openai",    m:"GPT-5.4",               in:2.50,  out:15.00 },
-    { p:"openai",    m:"GPT-5.4 mini",          in:0.75,  out:4.50 },
-    { p:"openai",    m:"GPT-4.1",               in:2.00,  out:8.00 },
-    { p:"openai",    m:"GPT-4.1 mini",          in:0.40,  out:1.60 },
-    { p:"openai",    m:"GPT-4.1 nano",          in:0.10,  out:0.40 },
-    { p:"openai",    m:"GPT-4o",                in:2.50,  out:10.00 },
-    { p:"openai",    m:"GPT-4o mini",           in:0.15,  out:0.60 },
-    { p:"openai",    m:"o3",                    in:2.00,  out:8.00 },
-    { p:"openai",    m:"o4-mini",               in:1.10,  out:4.40 },
+    { p:"openai", key:"gpt-5.5",      m:"GPT-5.5" },
+    { p:"openai", key:"gpt-5.4",      m:"GPT-5.4" },
+    { p:"openai", key:"gpt-5.4-mini", m:"GPT-5.4 mini" },
+    { p:"openai", key:"gpt-4.1",      m:"GPT-4.1" },
+    { p:"openai", key:"gpt-4.1-mini", m:"GPT-4.1 mini" },
+    { p:"openai", key:"gpt-4.1-nano", m:"GPT-4.1 nano" },
+    { p:"openai", key:"gpt-4o",       m:"GPT-4o" },
+    { p:"openai", key:"gpt-4o-mini",  m:"GPT-4o mini" },
+    { p:"openai", key:"o3",           m:"o3" },
+    { p:"openai", key:"o4-mini",      m:"o4-mini" },
 
-    { p:"google",    m:"Gemini 3.5 Flash",      in:1.50,  out:9.00 },
-    { p:"google",    m:"Gemini 3.1 Pro",        in:2.00,  out:12.00, note:"Preview" },
-    { p:"google",    m:"Gemini 3.1 Flash-Lite", in:0.25,  out:1.50 },
-    { p:"google",    m:"Gemini 2.5 Pro",        in:1.25,  out:10.00 },
-    { p:"google",    m:"Gemini 2.5 Flash",      in:0.30,  out:2.50 },
-    { p:"google",    m:"Gemini 2.5 Flash-Lite", in:0.10,  out:0.40 },
+    { p:"google", key:"gemini-3.5-flash",       m:"Gemini 3.5 Flash" },
+    { p:"google", key:"gemini-3.1-pro-preview", m:"Gemini 3.1 Pro", note:"Preview" },
+    { p:"google", key:"gemini-3.1-flash-lite",  m:"Gemini 3.1 Flash-Lite" },
+    { p:"google", key:"gemini-2.5-pro",         m:"Gemini 2.5 Pro" },
+    { p:"google", key:"gemini-2.5-flash",       m:"Gemini 2.5 Flash" },
+    { p:"google", key:"gemini-2.5-flash-lite",  m:"Gemini 2.5 Flash-Lite" },
 
-    { p:"xai",       m:"Grok 4.3",              in:1.25,  out:2.50 },
-    { p:"xai",       m:"Grok 4.20",             in:2.00,  out:6.00 },
-    { p:"xai",       m:"Grok 4",                in:3.00,  out:15.00 },
-    { p:"xai",       m:"Grok 3",                in:2.00,  out:10.00 },
-    { p:"xai",       m:"Grok 3 Mini",           in:0.30,  out:0.50 },
+    { p:"xai", key:"grok-4.3",    m:"Grok 4.3" },
+    { p:"xai", key:"grok-4.20",   m:"Grok 4.20" },
+    { p:"xai", key:"grok-4",      m:"Grok 4" },
+    { p:"xai", key:"grok-3",      m:"Grok 3" },
+    { p:"xai", key:"grok-3-mini", m:"Grok 3 Mini" },
 
-    { p:"mistral",   m:"Mistral Large 3",       in:2.00,  out:6.00 },
-    { p:"mistral",   m:"Mistral Medium 3",      in:0.40,  out:2.00 },
-    { p:"mistral",   m:"Mistral Small 3",       in:0.20,  out:0.60 },
-    { p:"mistral",   m:"Codestral",             in:0.30,  out:0.90 },
+    { p:"mistral", key:"mistral-large-3",  m:"Mistral Large 3" },
+    { p:"mistral", key:"mistral-medium-3", m:"Mistral Medium 3" },
+    { p:"mistral", key:"mistral-small-3",  m:"Mistral Small 3" },
+    { p:"mistral", key:"codestral",        m:"Codestral" },
 
-    { p:"perplexity",m:"Sonar Pro",             in:3.00,  out:15.00 },
-    { p:"perplexity",m:"Sonar",                 in:1.00,  out:1.00 },
-    { p:"perplexity",m:"Sonar Reasoning Pro",   in:2.00,  out:8.00 },
+    { p:"perplexity", key:"sonar-pro",           m:"Sonar Pro" },
+    { p:"perplexity", key:"sonar",               m:"Sonar" },
+    { p:"perplexity", key:"sonar-reasoning-pro", m:"Sonar Reasoning Pro" },
 
-    { p:"deepseek",  m:"DeepSeek V4 Flash",     in:0.14,  out:0.28 },
-    { p:"deepseek",  m:"DeepSeek V4 Pro",       in:1.74,  out:3.48 },
-    { p:"deepseek",  m:"DeepSeek V3",           in:0.14,  out:0.28 },
-    { p:"deepseek",  m:"DeepSeek R1",           in:0.55,  out:2.19 }
+    { p:"deepseek", key:"deepseek-v4-flash", m:"DeepSeek V4 Flash" },
+    { p:"deepseek", key:"deepseek-v4-pro",   m:"DeepSeek V4 Pro" },
+    { p:"deepseek", key:"deepseek-v3",       m:"DeepSeek V3" },
+    { p:"deepseek", key:"deepseek-r1",       m:"DeepSeek R1" }
   ];
+
+  // ---- Path to the live prices file (same file the Monday Action maintains) ----
+  var PRICES_URL = "/extension/prices.json";
+
+  // ---- Fallback snapshot of prices.json (per-token USD) ----
+  // Only used if the live fetch fails, so the table never renders empty.
+  var FALLBACK_PRICES = {
+    "_last_updated": "2026-06-18",
+    "anthropic": {
+      "claude-haiku-4-5-20251001": { input: 1e-6,    output: 5e-6 },
+      "claude-sonnet-4-6":         { input: 3e-6,    output: 1.5e-5 },
+      "claude-opus-4-8":           { input: 5e-6,    output: 2.5e-5 }
+    },
+    "openai": {
+      "gpt-5.5":      { input: 5e-6,    output: 3e-5 },
+      "gpt-5.4":      { input: 2.5e-6,  output: 1.5e-5 },
+      "gpt-5.4-mini": { input: 7.5e-7,  output: 4.5e-6 },
+      "gpt-4.1":      { input: 2e-6,    output: 8e-6 },
+      "gpt-4.1-mini": { input: 4e-7,    output: 1.6e-6 },
+      "gpt-4.1-nano": { input: 1e-7,    output: 4e-7 },
+      "gpt-4o":       { input: 2.5e-6,  output: 1e-5 },
+      "gpt-4o-mini":  { input: 1.5e-7,  output: 6e-7 },
+      "o3":           { input: 2e-6,    output: 8e-6 },
+      "o4-mini":      { input: 1.1e-6,  output: 4.4e-6 }
+    },
+    "google": {
+      "gemini-3.5-flash":       { input: 1.5e-6,  output: 9e-6 },
+      "gemini-3.1-pro-preview": { input: 2e-6,    output: 1.2e-5 },
+      "gemini-3.1-flash-lite":  { input: 2.5e-7,  output: 1.5e-6 },
+      "gemini-2.5-pro":         { input: 1.25e-6, output: 1e-5 },
+      "gemini-2.5-flash":       { input: 3e-7,    output: 2.5e-6 },
+      "gemini-2.5-flash-lite":  { input: 1e-7,    output: 4e-7 }
+    },
+    "xai": {
+      "grok-4.3":    { input: 1.25e-6, output: 2.5e-6 },
+      "grok-4.20":   { input: 2e-6,    output: 6e-6 },
+      "grok-4":      { input: 3e-6,    output: 1.5e-5 },
+      "grok-3":      { input: 2e-6,    output: 1e-5 },
+      "grok-3-mini": { input: 3e-7,    output: 5e-7 }
+    },
+    "mistral": {
+      "mistral-large-3":  { input: 2e-6,    output: 6e-6 },
+      "mistral-medium-3": { input: 4e-7,    output: 2e-6 },
+      "mistral-small-3":  { input: 2e-7,    output: 6e-7 },
+      "codestral":        { input: 3e-7,    output: 9e-7 }
+    },
+    "perplexity": {
+      "sonar-pro":           { input: 3e-6,    output: 1.5e-5 },
+      "sonar":               { input: 1e-6,    output: 1e-6 },
+      "sonar-reasoning-pro": { input: 2e-6,    output: 8e-6 }
+    },
+    "deepseek": {
+      "deepseek-v4-flash": { input: 1.4e-7,  output: 2.8e-7 },
+      "deepseek-v4-pro":   { input: 1.74e-6, output: 3.48e-6 },
+      "deepseek-v3":       { input: 1.4e-7,  output: 2.8e-7 },
+      "deepseek-r1":       { input: 5.5e-7,  output: 2.19e-6 }
+    }
+  };
+
+  // Build display rows from a prices object (per-token -> per 1,000,000 tokens).
+  function buildPerToken(prices) {
+    var rows = [];
+    MODEL_REGISTRY.forEach(function (e) {
+      var group = prices[e.p];
+      var rec = group && group[e.key];
+      if (!rec || typeof rec.input !== "number" || typeof rec.output !== "number") return;
+      rows.push({ p: e.p, m: e.m, note: e.note, in: rec.input * 1e6, out: rec.output * 1e6 });
+    });
+    return rows;
+  }
+
+  // Starts from the fallback snapshot; replaced by live data once prices.json loads.
+  var perTokenData = buildPerToken(FALLBACK_PRICES);
 
   // ---- Subscription data (USD per month, consumer plans) ----
   var SUBSCRIPTIONS = [
@@ -406,7 +484,7 @@
     { p:"deepseek",   m:"DeepSeek (Free)",      price:0,  note:"No paid consumer tier — chat is free" }
   ];
 
-  var UPDATED = "2026-06-18";
+  var UPDATED = FALLBACK_PRICES._last_updated;
 
   // ---- State ----
   var state = { view: "token", search: "", provider: "all", sortKey: null, sortDir: 1 };
@@ -416,15 +494,16 @@
   function provColor(p) { return (PROVIDERS[p] || {}).color || "#8aa096"; }
   function money(n) { return "$" + n.toFixed(2); }
 
-  function activeData() { return state.view === "token" ? PER_TOKEN : SUBSCRIPTIONS; }
+  function activeData() { return state.view === "token" ? perTokenData : SUBSCRIPTIONS; }
 
   // ---- Ticker ----
   function fillTicker() {
     var provset = {};
-    PER_TOKEN.forEach(function (r) { provset[r.p] = 1; });
+    perTokenData.forEach(function (r) { provset[r.p] = 1; });
     SUBSCRIPTIONS.forEach(function (r) { provset[r.p] = 1; });
-    var cheapest = Math.min.apply(null, PER_TOKEN.map(function (r) { return r.in; }));
-    $("t-models").textContent = PER_TOKEN.length;
+    var inputs = perTokenData.map(function (r) { return r.in; });
+    var cheapest = inputs.length ? Math.min.apply(null, inputs) : 0;
+    $("t-models").textContent = perTokenData.length;
     $("t-prov").textContent = Object.keys(provset).length;
     $("t-cheap").textContent = money(cheapest);
     $("t-date").textContent = UPDATED;
@@ -559,9 +638,27 @@
   $("view-sub").addEventListener("click", function () { setView("sub"); });
   $("search").addEventListener("input", function (e) { state.search = e.target.value; render(); });
 
+  // ---- Pull live prices from prices.json (the file the Monday Action updates) ----
+  function loadLivePrices() {
+    if (typeof fetch !== "function") return;
+    fetch(PRICES_URL, { cache: "no-store" })
+      .then(function (res) { if (!res.ok) { throw new Error("HTTP " + res.status); } return res.text(); })
+      .then(function (text) {
+        var data = JSON.parse(text);
+        var rows = buildPerToken(data);
+        if (!rows.length) { return; }            // keep fallback if nothing usable came back
+        perTokenData = rows;
+        if (data._last_updated) { UPDATED = data._last_updated; }
+        fillTicker();
+        if (state.view === "token") { render(); }
+      })
+      .catch(function () { /* network/parse failed — keep the fallback snapshot */ });
+  }
+
   fillTicker();
   buildChips();
   render();
+  loadLivePrices();
 })();
 </script>
 </body>
