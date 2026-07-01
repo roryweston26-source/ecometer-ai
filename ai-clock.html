@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The AI Clock — Legerly</title>
+<meta name="description" content="A live, ticking estimate of what the world's AI use costs every second — in prompts, tokens, electricity, water, dollars and carbon. Efficiency is improving; the total footprint is growing anyway. From Legerly.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=Inter:wght@400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<!--
+  Fonts load from the same Google Fonts source index.html already uses, so this page
+  matches the live site. If you later move the whole site to self-hosted fonts (as the
+  extension does, for privacy), swap this <link> for @font-face here too. System
+  fallbacks are in the CSS below.
+
+  This is a DUAL-FORCE TIME MODEL. Every figure evolves with time:
+    - volume (prompts, tokens, users, compute) trends UP
+    - per-unit cost (energy/water/$ per token) trends DOWN as efficiency improves
+  Each driver has its own annual rate (see RATES). They're composed so the NET
+  total growth matches the one measured anchor: total AI electricity rose ~17% in
+  2025 (IEA). Forward motion is a MODELLED TRAJECTORY, meant to be re-anchored from
+  fresh data regularly (e.g. a weekly Action) — not extrapolated for years. The
+  headline efficiency rates (10x/yr cost, 33x/yr one-off Gemini) are NOT extrapolated
+  raw; conservative decelerating central values are used instead.
+
+  To update: edit SCENARIOS (levels, as of the ANCHOR date) and RATES (trajectories).
+-->
+
+<style>
+  :root{
+    --bg:#0a0f0d; --panel:#0e1613; --panel-line:rgba(76,175,130,.16);
+    --ink:#eaf2ee; --muted:#7d938a; --muted-dim:#5c6f68;
+    --green:#4caf82; --green-2:#38c9a0; --gold:#d4a843;
+    --display:'Syne', ui-sans-serif, system-ui, sans-serif;
+    --body:'Inter', ui-sans-serif, system-ui, sans-serif;
+    --mono:'DM Mono', ui-monospace, 'SF Mono', 'Roboto Mono', monospace;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.5;
+    background-image:radial-gradient(120% 80% at 50% -10%, rgba(56,201,160,.07), transparent 60%);background-attachment:fixed}
+  .wrap{max-width:1120px;margin:0 auto;padding:clamp(24px,5vw,72px) clamp(18px,4vw,40px) 80px}
+
+  .topnav{display:flex;align-items:center;justify-content:space-between;margin-bottom:clamp(30px,5vw,52px)}
+  .topnav .brand{font-family:var(--display);font-weight:800;font-size:20px;color:var(--ink);text-decoration:none;letter-spacing:-.02em}
+  .topnav .brand span{color:var(--green)}
+  .topnav .back{font-family:var(--body);font-size:.9rem;font-weight:500;color:var(--muted);text-decoration:none;transition:color .2s}
+  .topnav .back:hover,.topnav .back:focus-visible{color:var(--green-2)}
+  .topnav a:focus-visible{outline:2px solid var(--green-2);outline-offset:3px;border-radius:4px}
+
+  header{margin-bottom:clamp(26px,4vw,40px)}
+  .eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.42em;text-transform:uppercase;color:var(--gold);display:flex;align-items:center;gap:.7em;margin:0 0 20px}
+  .eyebrow::after{content:"";height:1px;flex:1;background:linear-gradient(90deg,rgba(212,168,67,.5),transparent)}
+  h1{font-family:var(--display);font-weight:800;font-size:clamp(2.4rem,7vw,4.6rem);line-height:.98;letter-spacing:-.02em;margin:0 0 22px}
+  h1 .accent{color:var(--green-2)}
+  .lede{font-size:clamp(1rem,2.1vw,1.2rem);color:var(--muted);max-width:50ch;margin:0 0 24px}
+  .lede strong{color:var(--ink);font-weight:600}
+
+  .levels{display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin-bottom:6px}
+  .segmented{display:inline-flex;background:var(--panel);border:1px solid var(--panel-line);border-radius:11px;padding:4px;gap:2px}
+  .segmented button{font-family:var(--mono);font-size:.76rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:transparent;border:0;cursor:pointer;padding:9px 16px;border-radius:8px;transition:color .18s,background .18s}
+  .segmented button:hover{color:var(--ink)}
+  .segmented button[aria-pressed="true"]{background:rgba(56,201,160,.14);color:var(--green-2)}
+  .segmented button:focus-visible{outline:2px solid var(--green-2);outline-offset:2px}
+  .levels .hint{font-family:var(--body);font-size:.84rem;color:var(--muted-dim);max-width:34ch}
+  .livebar{display:inline-flex;align-items:center;gap:.6em;margin-top:22px;font-family:var(--mono);font-size:.74rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--green-2)}
+  @media (prefers-reduced-motion:no-preference){.dot{animation:pulse 2.2s ease-out infinite}}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(56,201,160,.55)}70%{box-shadow:0 0 0 9px rgba(56,201,160,0)}100%{box-shadow:0 0 0 0 rgba(56,201,160,0)}}
+
+  /* ---- paradox panel (the signature) ---- */
+  .paradox{margin-top:clamp(30px,5vw,46px);border:1px solid var(--panel-line);border-radius:14px;background:linear-gradient(180deg,rgba(14,22,19,.9),rgba(14,22,19,.5));overflow:hidden}
+  .paradox-head{padding:22px clamp(18px,3vw,26px) 4px}
+  .paradox-head h2{font-family:var(--display);font-weight:700;font-size:clamp(1.3rem,3.2vw,1.8rem);letter-spacing:-.01em;margin:0 0 6px}
+  .paradox-head p{font-size:.92rem;color:var(--muted);margin:0;max-width:60ch}
+  .paradox-cols{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--panel-line);margin-top:18px}
+  .pcol{background:var(--panel);padding:20px clamp(18px,3vw,26px) 24px}
+  .pcol .cap{font-family:var(--mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;margin-bottom:16px}
+  .pcol.down .cap{color:var(--green-2)}
+  .pcol.up .cap{color:var(--gold)}
+  .prow{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:9px 0;border-top:1px solid rgba(76,175,130,.08)}
+  .prow:first-of-type{border-top:0}
+  .prow .k{font-size:.86rem;color:var(--muted)}
+  .prow .v{font-family:var(--mono);font-size:.92rem;white-space:nowrap}
+  .pcol.down .v{color:var(--green-2)}
+  .pcol.up .v{color:var(--gold)}
+  .prow .v .arw{font-size:.8em;margin-left:.2em}
+  @media (max-width:560px){.paradox-cols{grid-template-columns:1fr}}
+
+  .band{margin-top:clamp(34px,5vw,52px)}
+  .band-head{display:flex;align-items:baseline;gap:.9em;flex-wrap:wrap;margin-bottom:20px}
+  .band-head h2{font-family:var(--mono);font-size:.8rem;font-weight:500;letter-spacing:.28em;text-transform:uppercase;color:var(--green);margin:0}
+  .band-head .sub{font-family:var(--body);font-size:.86rem;color:var(--muted-dim)}
+  .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(258px,1fr))}
+  .metric{background:var(--panel);border:1px solid var(--panel-line);border-radius:12px;padding:20px 20px 18px;min-width:0;position:relative;overflow:hidden}
+  .metric::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:linear-gradient(var(--green-2),rgba(56,201,160,0));opacity:.55}
+  .metric.stock::before{background:linear-gradient(var(--gold),rgba(212,168,67,0))}
+  .m-label{font-family:var(--mono);font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+  .m-value{font-family:var(--mono);font-weight:500;font-size:clamp(1.5rem,5.4vw,2.35rem);line-height:1.05;letter-spacing:-.01em;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .m-value .pre,.m-value .unit{color:var(--green-2)}
+  .m-value .unit{font-size:.5em;letter-spacing:.04em;margin-left:.45em;color:var(--muted)}
+  .metric.stock .m-value{color:#f4ecd8}
+  .metric.stock .m-value .pre,.metric.stock .m-value .unit{color:var(--gold)}
+  .m-rate{font-family:var(--mono);font-size:.76rem;color:var(--gold);margin-top:12px}
+  .metric.stock .m-rate{color:var(--green)}
+  .m-basis{font-size:.82rem;color:var(--muted-dim);margin-top:7px}
+
+  .method{margin-top:clamp(48px,7vw,80px);border-top:1px solid var(--panel-line);padding-top:38px}
+  .method h2{font-family:var(--mono);font-size:.8rem;font-weight:500;letter-spacing:.28em;text-transform:uppercase;color:var(--green);margin:0 0 16px}
+  .method p{color:var(--muted);max-width:66ch;margin:0 0 16px}
+  .method p strong{color:var(--ink);font-weight:600}
+  .method dl{max-width:80ch;margin:22px 0 0;display:grid;gap:2px}
+  .method dt{font-family:var(--mono);font-size:.78rem;color:var(--green-2);letter-spacing:.04em;padding-top:14px}
+  .method dd{margin:4px 0 0;color:var(--muted);font-size:.92rem}
+  .method dd .src{color:var(--muted-dim);font-style:italic}
+
+  footer{margin-top:56px;padding-top:26px;border-top:1px solid var(--panel-line);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;color:var(--muted-dim)}
+  footer a{color:var(--green);text-decoration:none}
+  footer a:hover,footer a:focus-visible{color:var(--green-2);text-decoration:underline}
+  a:focus-visible{outline:2px solid var(--green-2);outline-offset:3px;border-radius:3px}
+  @media (max-width:560px){.metric{padding:16px 16px 15px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <nav class="topnav">
+    <a href="/" class="brand">Legerly<span>.</span></a>
+    <a href="/#tools" class="back">← All tools</a>
+  </nav>
+
+  <header>
+    <p class="eyebrow">Clarity for the AI market</p>
+    <h1>The <span class="accent">AI</span> Clock</h1>
+    <p class="lede">Every second, the world runs a little more of itself on AI. Each prompt keeps getting cheaper — and <strong>the total keeps climbing anyway.</strong> Counted live, with the math shown.</p>
+
+    <div class="levels">
+      <div class="segmented" role="group" aria-label="Estimate level">
+        <button data-scenario="conservative" aria-pressed="false">Conservative</button>
+        <button data-scenario="moderate" aria-pressed="true">Moderate</button>
+        <button data-scenario="high" aria-pressed="false">High</button>
+      </div>
+      <span class="hint">The floor, middle and ceiling of published research. Nobody knows the exact figure — so we show the range.</span>
+    </div>
+
+    <span class="livebar"><span class="dot" aria-hidden="true"></span> Live estimate · updating now</span>
+  </header>
+
+  <main>
+    <!-- signature: the Jevons paradox, made literal -->
+    <section class="paradox" aria-labelledby="para-h">
+      <div class="paradox-head">
+        <h2 id="para-h">Cheaper every year. Bigger every year.</h2>
+        <p>Efficiency is improving faster than almost any technology in history. It still isn't winning — because the more it drops, the more we run.</p>
+      </div>
+      <div class="paradox-cols">
+        <div class="pcol down">
+          <div class="cap">Per unit &mdash; getting cheaper &amp; cleaner</div>
+          <div class="prow"><span class="k">Energy per 1,000 tokens</span><span class="v" id="pu-energy"></span></div>
+          <div class="prow"><span class="k">Price per million tokens</span><span class="v" id="pu-cost"></span></div>
+          <div class="prow"><span class="k">Water per 1,000 tokens</span><span class="v" id="pu-water"></span></div>
+        </div>
+        <div class="pcol up">
+          <div class="cap">In total &mdash; still growing</div>
+          <div class="prow"><span class="k">Electricity used</span><span class="v" id="pt-energy"></span></div>
+          <div class="prow"><span class="k">Spent on AI compute</span><span class="v" id="pt-cost"></span></div>
+          <div class="prow"><span class="k">Water consumed</span><span class="v" id="pt-water"></span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="band" aria-labelledby="flows-h">
+      <div class="band-head">
+        <h2 id="flows-h">Flowing worldwide</h2>
+        <span class="sub">accumulated so far in 2026</span>
+      </div>
+      <div class="grid" id="flows"></div>
+    </section>
+
+    <section class="band" aria-labelledby="stocks-h">
+      <div class="band-head">
+        <h2 id="stocks-h">The installed base</h2>
+        <span class="sub">where things stand right now</span>
+      </div>
+      <div class="grid" id="stocks"></div>
+    </section>
+
+    <section class="method" aria-labelledby="method-h">
+      <h2 id="method-h">How we count this</h2>
+      <p>These are <strong>estimates, not meter readings.</strong> No AI company publishes a live global count of prompts, power or water, so this clock builds one from the best public figures. It's a <strong>two-force model</strong>: usage trends up while the cost of each unit trends down as hardware and models get more efficient. The two are composed so the net matches the one thing that's actually measured — total AI electricity rose about 17% in 2025 despite the efficiency gains. The three levels bracket the honest range; the gap is wide because the real uncertainty is.</p>
+      <p>Forward motion here is a <strong>modelled trajectory, not a prophecy.</strong> The published efficiency rates (roughly 10× cheaper per year for equal capability; a one-off 33× drop in Gemini's per-prompt energy) are recent and decelerating, so they're used as conservative central rates and are meant to be re-anchored from fresh data regularly rather than extrapolated for years.</p>
+      <dl>
+        <dt>AI prompts — 3 / 4.5 / 6 billion per day, trending up</dt>
+        <dd>ChatGPT alone reported ~2.5 billion prompts a day in mid-2025 at roughly 77% market share; adding the rest and 2026 growth puts the industry in this band. <span class="src">Sources: OpenAI (via Axios/TechCrunch); market-share trackers.</span></dd>
+
+        <dt>Tokens — 900 / 1,500 / 3,000 per prompt, trending up</dt>
+        <dd>Input plus output. Reasoning and agentic use pushes this higher every year — such workflows can use 5–30× the tokens of a plain chat query. <span class="src">Sources: Epoch AI; Gartner (via reporting).</span></dd>
+
+        <dt>Electricity — 0.4 / 2 / 10 Wh per prompt, per-token falling</dt>
+        <dd>A simple query is ~0.3 Wh (Epoch AI; OpenAI's own 0.34 Wh); a heavy reasoning query runs 18–40 Wh. GPU energy efficiency improves ~34%/yr, so per-token energy falls even as prompts get heavier. Inference only — total AI data-centre power including training is far larger. <span class="src">Sources: Epoch AI; Univ. of Rhode Island; IEA.</span></dd>
+
+        <dt>Water — on-site vs full-lifecycle scope</dt>
+        <dd>Per token. Conservative uses the on-site cooling scope, anchored to Google's disclosed 0.26 mL per Gemini prompt; high uses the full-lifecycle academic scope, which adds the water used to generate the electricity; moderate is the midpoint. Real-world use varies 10–25× with location and cooling. <span class="src">Sources: UC Riverside — Li et al. 2023, "Making AI Less Thirsty"; Google (Aug 2025); IEEE Spectrum.</span></dd>
+
+        <dt>Spend — blended from published list prices</dt>
+        <dd>Real per-token prices from provider pricing pages, weighted 2:1 input to output. Conservative (~$0.8/M) is the mini/free-tier mix; moderate (~$2.5/M) a balanced blend; high (~$8/M) flagship models. Price for equal capability falls roughly 10× a year, but realised spend still rises because volume and premium usage outpace it. <span class="src">Sources: OpenAI, Google, Anthropic pricing pages; decline rate — a16z ("LLMflation"), Epoch AI.</span></dd>
+
+        <dt>Carbon — 0.3 / 0.4 / 0.5 kg CO₂ per kWh, slowly falling</dt>
+        <dd>Grid intensity applied to the inference electricity above, easing slightly each year as grids clean up. Real intensity swings widely by region and datacentre. <span class="src">Source: global grid-average emission factors.</span></dd>
+
+        <dt>People using AI — 0.6 / 1.0 / 1.4 billion, trending up</dt>
+        <dd>ChatGPT alone reached ~900 million weekly users by February 2026; all tools together (minus overlap) sit near a billion. <span class="src">Sources: OpenAI; market research.</span></dd>
+
+        <dt>AI compute installed — 13 / 15 / 18 million H100-equivalents</dt>
+        <dd>~15 million H100-equivalents had been delivered worldwide by late 2025. The compute power of the installed fleet is growing ~3.4× a year; this counter uses a more conservative count-based growth. <span class="src">Source: Epoch AI.</span></dd>
+
+        <dt>Rates of change</dt>
+        <dd>Cost for equal capability ~10×/yr cheaper (a16z; Epoch AI); GPU energy efficiency ~34%/yr better and installed compute power ~3.4×/yr (Epoch AI); total data-centre electricity +17% in 2025 (IEA). These are composed so the net footprint growth matches that measured 17%, then re-anchored regularly so the projection never runs far ahead of reality. <span class="src">Sources: Epoch AI; a16z; IEA.</span></dd>
+      </dl>
+    </section>
+  </main>
+
+  <footer>
+    <span>Legerly — bringing clarity to the AI market</span>
+    <span>Estimates · <a href="/">legerlyai.com</a></span>
+  </footer>
+
+</div>
+
+<script>
+/* =========================================================================
+   SCENARIOS — levels as of the ANCHOR date. Edit to update.
+   RATES — annual trajectories (multipliers per year). Shared across scenarios.
+   ========================================================================= */
+const SCENARIOS = {
+  conservative: { promptsPerDay:3.0e9, tokensPerPrompt:900,  whPerPrompt:0.4, mlWaterPerToken:0.00029, usdPer1MTokens:0.8, kgCo2PerKwh:0.3, usersNow:0.6e9, gpusNow:13e6 },
+  moderate:     { promptsPerDay:4.5e9, tokensPerPrompt:1500, whPerPrompt:2,   mlWaterPerToken:0.0022,  usdPer1MTokens:2.5, kgCo2PerKwh:0.4, usersNow:1.0e9, gpusNow:15e6 },
+  high:         { promptsPerDay:6.0e9, tokensPerPrompt:3000, whPerPrompt:10,  mlWaterPerToken:0.016,   usdPer1MTokens:8,   kgCo2PerKwh:0.5, usersNow:1.4e9, gpusNow:18e6 }
+};
+
+/* annual multipliers. >1 grows, <1 shrinks. Chosen conservative & decelerating.
+   Net totals below are calibrated so total energy grows ~1.17-1.18x/yr (IEA-measured). */
+const RATES = {
+  promptVolume:   1.35,  // +35%/yr   prompt count
+  tokensPerPrompt:1.12,  // +12%/yr   reasoning/agentic shift
+  energyPerToken: 0.78,  // -22%/yr   hardware + algorithmic efficiency
+  waterPerToken:  0.80,  // -20%/yr   tracks cooling/energy efficiency
+  costPerToken:   0.82,  // -18%/yr   realised (list price for equal capability falls ~10x/yr)
+  co2PerKwh:      0.96,  // -4%/yr    grids slowly cleaning
+  users:          1.35,  // +35%/yr
+  compute:        2.20   // +120%/yr  installed H100-equivalents (power grows ~3.4x/yr)
+};
+
+const ANCHOR_MS   = Date.UTC(2026, 5, 30, 0, 0, 0);  // values above are "as of" this date
+const FLOW_EPOCH  = Date.UTC(2026, 0, 1, 0, 0, 0);   // flows accumulate from here
+const YEAR_MS     = 365.25 * 86400 * 1000;
+const SPY         = 365.25 * 86400;                  // seconds per year
+
+/* composed net annual growth per metric (derived from RATES) */
+const G = {
+  prompts: RATES.promptVolume,
+  tokens:  RATES.promptVolume * RATES.tokensPerPrompt,
+  energy:  RATES.promptVolume * RATES.tokensPerPrompt * RATES.energyPerToken,
+  water:   RATES.promptVolume * RATES.tokensPerPrompt * RATES.waterPerToken,
+  cost:    RATES.promptVolume * RATES.tokensPerPrompt * RATES.costPerToken
+};
+G.co2 = G.energy * RATES.co2PerKwh;
+
+/* base per-second rates (as of ANCHOR) for a scenario */
+function baseRates(s){
+  const pps = s.promptsPerDay / 86400;
+  const tps = pps * s.tokensPerPrompt;
+  const kwh = pps * s.whPerPrompt / 1000;
+  return {
+    prompts: pps,
+    tokens:  tps,
+    energy:  kwh,
+    water:   tps * s.mlWaterPerToken / 1000,
+    cost:    tps * s.usdPer1MTokens / 1e6,
+    co2:     kwh * s.kgCo2PerKwh / 1000
+  };
+}
+
+/* time helpers */
+const yearsFromAnchor = ms => (ms - ANCHOR_MS) / YEAR_MS;
+function currentRate(r0, g, nowMs){ return r0 * Math.exp(Math.log(g) * yearsFromAnchor(nowMs)); }
+function cumulative(r0, g, nowMs){
+  const k = Math.log(g);
+  if (Math.abs(k) < 1e-9) return r0 * ((nowMs - FLOW_EPOCH) / 1000);
+  const xNow = yearsFromAnchor(nowMs), xEp = yearsFromAnchor(FLOW_EPOCH);
+  return r0 * (SPY / k) * (Math.exp(k * xNow) - Math.exp(k * xEp));
+}
+function stockLevel(base, g, nowMs){ return base * Math.exp(Math.log(g) * yearsFromAnchor(nowMs)); }
+
+/* ---- metric cards ---- */
+const FLOWS = [
+  { id:'prompts', label:'AI prompts sent' },
+  { id:'tokens',  label:'Tokens processed' },
+  { id:'energy',  label:'Electricity used', unit:'kWh' },
+  { id:'water',   label:'Water consumed',   unit:'liters' },
+  { id:'cost',    label:'Spent on AI compute', pre:'$' },
+  { id:'co2',     label:'CO₂ emitted',      unit:'tonnes' }
+];
+const STOCKS = [
+  { id:'users', label:'People using AI worldwide' },
+  { id:'gpus',  label:'AI compute installed', unit:'H100-eq' }
+];
+
+const fmt = n => Math.floor(n).toLocaleString('en-US');
+const fmt1 = n => (Math.round(n*10)/10).toLocaleString('en-US',{minimumFractionDigits:1,maximumFractionDigits:1});
+const pctUp   = g => `+${Math.round((g-1)*100)}%`;
+const pctDown = g => `-${Math.round((1-g)*100)}%`;
+function rateLabel(perSec, unit){
+  const u = unit ? ' ' + unit : '';
+  return perSec >= 1 ? `+${fmt(perSec)}${u} every second` : `+${fmt(perSec*86400)}${u} every day`;
+}
+
+function buildCard(m, isStock){
+  const el = document.createElement('div');
+  el.className = 'metric' + (isStock ? ' stock' : '');
+  el.innerHTML =
+    `<div class="m-label">${m.label}</div>` +
+    `<div class="m-value" id="v-${m.id}"><span class="pre"></span><span class="num">0</span><span class="unit"></span></div>` +
+    `<div class="m-rate" id="r-${m.id}"></div>` +
+    `<div class="m-basis" id="b-${m.id}"></div>`;
+  const v = el.querySelector('.m-value');
+  if (m.pre)  v.querySelector('.pre').textContent  = m.pre;
+  if (m.unit) v.querySelector('.unit').textContent = m.unit;
+  return el;
+}
+const flowsRoot = document.getElementById('flows');
+const stocksRoot = document.getElementById('stocks');
+FLOWS.forEach(m  => flowsRoot.appendChild(buildCard(m, false)));
+STOCKS.forEach(m => stocksRoot.appendChild(buildCard(m, true)));
+const numNodes = {};
+[...FLOWS, ...STOCKS].forEach(m => { numNodes[m.id] = document.querySelector(`#v-${m.id} .num`); });
+
+/* ---- state ---- */
+let activeKey = 'moderate';
+let B = baseRates(SCENARIOS[activeKey]);
+
+function basisNote(id){
+  const s = SCENARIOS[activeKey];
+  switch(id){
+    case 'prompts': return `${(s.promptsPerDay/1e9).toLocaleString()}B prompts/day · ${pctUp(G.prompts)}/yr`;
+    case 'tokens':  return `${s.tokensPerPrompt.toLocaleString()} tokens/prompt · ${pctUp(G.tokens)}/yr`;
+    case 'energy':  return `${s.whPerPrompt} Wh/prompt · efficiency ${pctDown(RATES.energyPerToken)}/yr per token`;
+    case 'water':   return `${s.mlWaterPerToken} mL/token · ${pctDown(RATES.waterPerToken)}/yr per token`;
+    case 'cost':    return `$${s.usdPer1MTokens}/M tokens · ~10× cheaper/yr for equal capability`;
+    case 'co2':     return `${s.kgCo2PerKwh} kg CO₂/kWh · grid ${pctDown(RATES.co2PerKwh)}/yr`;
+    case 'users':   return `~${(s.usersNow/1e9).toLocaleString()}B now · ${pctUp(RATES.users)}/yr`;
+    case 'gpus':    return `~${(s.gpusNow/1e6)}M now · fleet power ~3.4×/yr`;
+  }
+}
+
+function renderLabels(){
+  const now = Date.now();
+  FLOWS.forEach(m => {
+    document.getElementById(`r-${m.id}`).textContent = rateLabel(currentRate(B[m.id], G[m.id], now), m.unit);
+    document.getElementById(`b-${m.id}`).textContent = basisNote(m.id);
+  });
+  document.getElementById('r-users').textContent = `≈ ${pctUp(RATES.users)} a year`;
+  document.getElementById('b-users').textContent = basisNote('users');
+  document.getElementById('r-gpus').textContent  = `≈ ${pctUp(RATES.compute)} a year`;
+  document.getElementById('b-gpus').textContent  = basisNote('gpus');
+
+  // paradox panel — per-unit (down) vs totals (up)
+  const s = SCENARIOS[activeKey];
+  const yrs = yearsFromAnchor(now);
+  const whPer1k   = (s.whPerPrompt / s.tokensPerPrompt) * 1000 * Math.exp(Math.log(RATES.energyPerToken)*yrs);
+  const usdPerM   = s.usdPer1MTokens * Math.exp(Math.log(RATES.costPerToken)*yrs);
+  const mlPer1k   = s.mlWaterPerToken * 1000 * Math.exp(Math.log(RATES.waterPerToken)*yrs);
+  document.getElementById('pu-energy').innerHTML = `${fmt1(whPer1k)} Wh <span class="arw">▼${pctDown(RATES.energyPerToken).replace('-','')}/yr</span>`;
+  document.getElementById('pu-cost').innerHTML   = `$${fmt1(usdPerM)} <span class="arw">▼~10×/yr*</span>`;
+  document.getElementById('pu-water').innerHTML  = `${fmt1(mlPer1k)} mL <span class="arw">▼${pctDown(RATES.waterPerToken).replace('-','')}/yr</span>`;
+  document.getElementById('pt-energy').innerHTML = `<span class="arw">▲</span>${pctUp(G.energy)}/yr`;
+  document.getElementById('pt-cost').innerHTML   = `<span class="arw">▲</span>${pctUp(G.cost)}/yr`;
+  document.getElementById('pt-water').innerHTML  = `<span class="arw">▲</span>${pctUp(G.water)}/yr`;
+}
+
+document.querySelectorAll('.segmented button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    activeKey = btn.dataset.scenario;
+    B = baseRates(SCENARIOS[activeKey]);
+    document.querySelectorAll('.segmented button').forEach(b =>
+      b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'));
+    renderLabels();
+    update();
+  });
+});
+
+function update(){
+  const now = Date.now();
+  FLOWS.forEach(m => { numNodes[m.id].textContent = fmt(cumulative(B[m.id], G[m.id], now)); });
+  numNodes.users.textContent = fmt(stockLevel(SCENARIOS[activeKey].usersNow, RATES.users, now));
+  numNodes.gpus.textContent  = fmt(stockLevel(SCENARIOS[activeKey].gpusNow,  RATES.compute, now));
+}
+
+const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+renderLabels();
+update();
+setInterval(() => { update(); }, reduce ? 250 : 60);
+setInterval(renderLabels, 60000); // refresh per-second rate + per-unit figures each minute
+</script>
+</body>
+</html>
